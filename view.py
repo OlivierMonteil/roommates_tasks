@@ -4,10 +4,16 @@ import calendar
 import re
 
 DAYS = list(calendar.day_name)
-ROOMMATES = ['Toto', 'NafNaf', 'Paf le iench']
+ROOMMATES = ['Toto', 'Naf-faf', 'Le grand mechant Loup']
 
 
 class CellEditor(QtWidgets.QTextEdit):
+    """
+    Custom cell editor :
+      - add a new task line, starting with "- " on "Enter"
+      - emits "editing_finished" signal on "Ctrl +Enter" (TableDelegate will end
+        the cell editing on that signal)
+    """
 
     editing_finished = QtCore.Signal(QtWidgets.QTextEdit)
 
@@ -15,14 +21,15 @@ class CellEditor(QtWidgets.QTextEdit):
         super(CellEditor, self).__init__(parent)
 
     def keyPressEvent(self, event):
-        modifs = event.modifiers()
         if event.key() == QtCore.Qt.Key_Return:
+            # go to a new "- " line
             if not event.modifiers():
                 text = self.toPlainText()
                 self.setText(text +'\n- ')
                 self.move_cursor_at_the_end()
                 return
 
+            # ask for editing's ending
             elif event.modifiers() == QtCore.Qt.ControlModifier:
                 self.editing_finished.emit(self)
                 return
@@ -36,6 +43,12 @@ class CellEditor(QtWidgets.QTextEdit):
 
 
 class TableDelegate(QtWidgets.QStyledItemDelegate):
+    """
+    Custom item delegate for TableView. Will allow :
+      - using custom cell editors
+      - perhaps some custom painting for tasks states?
+    """
+
     def __init__(self, parent=None):
         super(TableDelegate, self).__init__(parent)
 
@@ -47,20 +60,22 @@ class TableDelegate(QtWidgets.QStyledItemDelegate):
         return editor
 
     def on_editing_finished(self, editor, index):
+        # edit cell's data and close editor
         self.setModelData(editor, self.parent.model(), index)
         self.closeEditor.emit(editor)
 
     def setEditorData(self, editor, index):
+        # add a new "- " line to editor and set cursor at the end of it
         value = index.model().data(index, QtCore.Qt.EditRole)
-        editor.clear()
         text = value +'\n- ' if value else '- '
-        editor.setText(text)
 
+        editor.setText(text)
         editor.move_cursor_at_the_end()
 
     def setModelData(self, editor, model, index):
         value = editor.toPlainText()
 
+        # remove empty "- " ending lines before setting cell's data
         while True:
             empty_end = re.search('(\s*-\s*)$', value)
             if not empty_end:
@@ -101,10 +116,11 @@ class TableModel(QtCore.QAbstractTableModel):
     def setData(self, index, value, role):
         if role == QtCore.Qt.EditRole:
             self._data[index.row()][index.column()] = value
+            self.dataChanged.emit(index, index)
             return True
 
     def flags(self, index):
-        return QtCore.Qt.ItemIsEditable | QtCore.Qt.ItemIsEnabled
+        return QtCore.Qt.ItemIsEditable | QtCore.Qt.ItemIsEnabled |QtCore.Qt.ItemIsSelectable
 
 
 class TableView(QtWidgets.QTableView):
@@ -112,7 +128,17 @@ class TableView(QtWidgets.QTableView):
         super(TableView, self).__init__(parent)
 
         self.setAlternatingRowColors(True)
-        self.verticalHeader().setAlternatingRowColors(True)
+
+        self.verticalHeader().setFixedWidth(100)
+        self.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+
+        self.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.horizontalHeader().setMinimumSectionSize(150)
+
+        delegate = TableDelegate(self)
+        self.setItemDelegate(delegate)
+
+        self.setMinimumSize(600, 250)
 
 
 if __name__ == '__main__':
@@ -121,8 +147,6 @@ if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
 
     table = TableView()
-    delegate = TableDelegate(table)
-    table.setItemDelegate(delegate)
 
     bullshit_model = []
     for i, _ in enumerate(DAYS):
