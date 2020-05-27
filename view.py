@@ -1,10 +1,6 @@
 from PySide2 import QtWidgets, QtGui, QtCore
 
-import calendar
 import re
-
-DAYS = list(calendar.day_name)
-ROOMMATES = ['Toto', 'Naf-faf', 'Le grand mechant Loup']
 
 
 class CellEditor(QtWidgets.QTextEdit):
@@ -86,43 +82,6 @@ class TableDelegate(QtWidgets.QStyledItemDelegate):
         model.setData(index, value, QtCore.Qt.EditRole)
 
 
-class TableModel(QtCore.QAbstractTableModel):
-    def __init__(self, data, parent=None):
-        super(TableModel, self).__init__(parent)
-
-        self._data = data
-
-    def headerData(self, i, orientation, role):
-        if role == QtCore.Qt.DisplayRole:
-            if orientation == QtCore.Qt.Vertical:
-                return DAYS[i]
-            else:
-                return ROOMMATES[i]
-        else:
-            return None
-
-    def rowCount(self, parent=None):
-        return len(DAYS)
-
-    def columnCount(self, parent=None):
-        return len(ROOMMATES)
-
-    def data(self, index, role):
-        if role == QtCore.Qt.DisplayRole:
-            return self._data[index.row()][index.column()]
-        if role == QtCore.Qt.EditRole:
-            return self._data[index.row()][index.column()]
-
-    def setData(self, index, value, role):
-        if role == QtCore.Qt.EditRole:
-            self._data[index.row()][index.column()] = value
-            self.dataChanged.emit(index, index)
-            return True
-
-    def flags(self, index):
-        return QtCore.Qt.ItemIsEditable | QtCore.Qt.ItemIsEnabled |QtCore.Qt.ItemIsSelectable
-
-
 class TableView(QtWidgets.QTableView):
     def __init__(self, parent=None):
         super(TableView, self).__init__(parent)
@@ -139,24 +98,3 @@ class TableView(QtWidgets.QTableView):
         self.setItemDelegate(delegate)
 
         self.setMinimumSize(600, 250)
-
-
-if __name__ == '__main__':
-    import sys
-
-    app = QtWidgets.QApplication(sys.argv)
-
-    table = TableView()
-
-    bullshit_model = []
-    for i, _ in enumerate(DAYS):
-        bullshit_model.append([])
-        for x in ROOMMATES:
-            bullshit_model[i].append('')
-
-    model = TableModel(bullshit_model)
-    table.setModel(model)
-
-    table.show()
-
-    sys.exit(app.exec_())
